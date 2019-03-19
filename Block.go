@@ -2,8 +2,6 @@ package main
 
 import (
 	"time"
-	"bytes"
-	"crypto/sha256"
 )
 
 type Block struct {
@@ -12,17 +10,7 @@ type Block struct {
 	Data [] byte			//交易数据  后期为transaction
 	TimeStamp int64			//时间戳
 	Hash []byte				//哈希值 32个字节，64个16进制数
-}
-
-func (block *Block) setHash() {
-	//每个数据都抓成[]byte
-	heightBytes := IntToHex(block.Height)
-	timeBytes := IntToHex(block.TimeStamp)
-	//拼接
-    s := bytes.Join([][]byte{heightBytes, block.PreBlockHash, block.Data, timeBytes}, []byte{})
-	//hash
-	sum256 := sha256.Sum256(s)
-	block.Hash = sum256[:]
+	Nonce int64
 }
 
 func CreateGenesisBlock(data string) *Block {
@@ -30,7 +18,11 @@ func CreateGenesisBlock(data string) *Block {
 }
 
 func NewBlock(data string, preBlockHash []byte, height int64) *Block {
-	block := &Block{height,preBlockHash,[]byte(data),time.Now().Unix(), nil}
-	block.setHash()
+	block := &Block{height,preBlockHash,[]byte(data),time.Now().Unix(), nil,0}
+	//block.setHash()
+	pow := NewProofOfWork(block)
+	hash, nonce := pow.Run()
+	block.Hash = hash
+	block.Nonce = nonce
 	return block
 }
