@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"bytes"
 	"crypto/sha256"
-	"fmt"
 )
 
 const TargetBit = 16 //20 24
@@ -30,7 +29,6 @@ func (pow *ProofOfWork) Run() ([]byte, int64) {
  	var blockHash []byte
  	for {
 		blockHash = pow.prepareData(nonce)
-		fmt.Printf("\r%d: %x\n",nonce,blockHash)
 		hashInt.SetBytes(blockHash)
 
 		if pow.Target.Cmp(hashInt) == 1{
