@@ -19,6 +19,7 @@ type Block struct {
 }
 
 func CreateGenesisBlock(data string) *Block {
+	fmt.Println("CreateGenesisBlock...............")
 	return NewBlock(data, make([] byte,32,32), 0)
 }
 
@@ -28,7 +29,6 @@ func NewBlock(data string, preBlockHash []byte, height int64) *Block {
 	hash, nonce := pow.Run()
 	block.Hash = hash
 	block.Nonce = nonce
-	fmt.Println("newBlock",block.Height)
 	return block
 }
 

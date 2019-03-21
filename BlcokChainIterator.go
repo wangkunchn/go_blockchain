@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/boltdb/bolt"
 	"log"
-	"fmt"
 )
 
 type BlockChainIterator struct {
@@ -18,8 +17,6 @@ func (i *BlockChainIterator) Next() *Block {
 		if bucket != nil {
 			blockHash := bucket.Get(i.CurrentHash)
 			block = DeserializeBlock(blockHash)
-			fmt.Println("-------------iterator",block.Height,blockHash)
-			fmt.Println("-------------iterator----hash",block.Height,block.Hash)
 			//更新iterator 最新hash
 			i.CurrentHash = block.PreBlockHash
 		}

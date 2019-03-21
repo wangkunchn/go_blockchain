@@ -14,26 +14,10 @@ type BlockChain struct {
 }
 
 //创建一个区块链，包含创世区块
-func CreateBlockChainWithGenesisBlock(data string) *BlockChain {
+func CreateBlockChainWithGenesisBlock(data string)  {
 	if dbExists() {
-		db, err := bolt.Open(DB_NAME, 0600, nil)
-		if err != nil {
-			log.Panic(err)
-		}
-		var blockchain *BlockChain
-		err2 := db.View(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
-			if bucket != nil {
-				blockHash := bucket.Get([]byte(LAST_BLOCK_HASH))
-				blockchain = &BlockChain{db, blockHash}
-
-			}
-			return nil
-		})
-		if err2 != nil {
-			log.Panic(err2)
-		}
-		return blockchain
+		fmt.Println("数据库已经存在。。")
+		return
 	}
 
 	genesisBlock := CreateGenesisBlock(data)
@@ -41,6 +25,7 @@ func CreateBlockChainWithGenesisBlock(data string) *BlockChain {
 	if err != nil {
 		log.Panic(err)
 	}
+	//defer db.close()
 	err2 := db.Update(func(tx *bolt.Tx) error {
 		bucket, e := tx.CreateBucketIfNotExists([]byte(BLOCK_TABLE_NAME))
 		if e != nil {
@@ -63,7 +48,6 @@ func CreateBlockChainWithGenesisBlock(data string) *BlockChain {
 	if err2 != nil {
 		log.Panic(err2)
 	}
-	return &BlockChain{db, genesisBlock.Hash}
 
 }
 
@@ -121,4 +105,29 @@ func (bc *BlockChain) PringChains() {
 		}
 	}
 
+}
+
+func GetBlockChainObject() *BlockChain {
+	if !dbExists() {
+		fmt.Println("数据库不存在无法返回 blockchain")
+		return nil
+	}
+	db, e := bolt.Open(DB_NAME, 0600, nil)
+	if e != nil {
+		log.Panic(e)
+	}
+	//defer db.close()
+	var blockchain *BlockChain
+	err := db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
+		if bucket != nil {
+			hash := bucket.Get([]byte(LAST_BLOCK_HASH))
+			blockchain = &BlockChain{db,hash}
+		}
+		return nil
+	})
+	if err != nil {
+		log.Panic(err)
+	}
+	return blockchain
 }
