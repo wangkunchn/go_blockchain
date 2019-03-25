@@ -44,7 +44,7 @@ func (pow *ProofOfWork) Run() ([]byte, int64) {
 func (pow *ProofOfWork) prepareData(nonce int64) []byte {
 	data := bytes.Join([][]byte{
 		IntToHex(pow.Block.Height),
-		pow.Block.Data,
+		pow.Block.hashTransaction(),
 		pow.Block.PreBlockHash,
 		IntToHex(pow.Block.TimeStamp),
 		IntToHex(nonce),

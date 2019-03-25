@@ -19,7 +19,7 @@ func (cli *CLI) Run() {
 	printChainCmd:= flag.NewFlagSet("printChain", flag.ExitOnError)
 	
 	//2.设置标签后面的参数
-	createBlockChainData := createBlockChainCmd.String("data", "Genesis block data..", "创始区块交易数据")
+	createBlockChainData := createBlockChainCmd.String("address", "Genesis block data..", "创始区块交易数据")
 	addBlockData := addBlockCmd.String("data", "helloworld..", "交易数据")
 
 	//3.解析
@@ -64,8 +64,8 @@ func (cli *CLI) Run() {
 	}
 }
 
-func (cli *CLI) createGenesisBlock(data string) {
-	CreateBlockChainWithGenesisBlock(data)
+func (cli *CLI) createGenesisBlock(address string) {
+	CreateBlockChainWithGenesisBlock(address)
 }
 func (cli *CLI) addBlock(data string) {
 	bc := GetBlockChainObject()
@@ -74,7 +74,7 @@ func (cli *CLI) addBlock(data string) {
 		return
 	}
 	defer bc.DB.Close()
-	bc.AddBlockToBlockChain(data)
+	//bc.AddBlockToBlockChain(data)
 }
 
 func (cli *CLI) printChain() {
@@ -98,7 +98,7 @@ func isVaild() {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("\tcreatBlockChain -data DATA -- 创建创世区块")
+	fmt.Println("\tcreatBlockChain -address DATA -- 创建coinbase")
 	fmt.Println("\taddBlock -data Data -- 交易数据")
 	fmt.Println("\tprintChain -- 输出信息")
 }

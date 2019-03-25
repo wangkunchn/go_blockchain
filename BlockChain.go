@@ -14,13 +14,14 @@ type BlockChain struct {
 }
 
 //创建一个区块链，包含创世区块
-func CreateBlockChainWithGenesisBlock(data string)  {
+func CreateBlockChainWithGenesisBlock(address string)  {
 	if dbExists() {
 		fmt.Println("数据库已经存在。。")
 		return
 	}
 
-	genesisBlock := CreateGenesisBlock(data)
+	txcoinbase := NewCoinBaseTransaction(address)
+	genesisBlock := CreateGenesisBlock([]*Transaction{txcoinbase})
 	db, err := bolt.Open(DB_NAME, 0600, nil)
 	if err != nil {
 		log.Panic(err)
@@ -52,13 +53,13 @@ func CreateBlockChainWithGenesisBlock(data string)  {
 }
 
 //添加区块到链中
-func (bc *BlockChain) AddBlockToBlockChain(data string) {
+func (bc *BlockChain) AddBlockToBlockChain(txs []*Transaction) {
 	err := bc.DB.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
 		if bucket != nil {
 			lastblockHash := bucket.Get(bc.Tip)
 			lastBlock := DeserializeBlock(lastblockHash)
-			newBlock := NewBlock(data, lastBlock.Hash, lastBlock.Height+1)
+			newBlock := NewBlock(txs, lastBlock.Hash, lastBlock.Height+1)
 			e := bucket.Put(newBlock.Hash, newBlock.Serilalize())
 			fmt.Println("存入pre",newBlock.Height,newBlock.PreBlockHash)
 			fmt.Println("存入current----",newBlock.Height,newBlock.Hash)
@@ -94,7 +95,21 @@ func (bc *BlockChain) PringChains() {
 		fmt.Printf("\t高度：%d\n", block.Height)
 		fmt.Printf("\t上一个区块的hash：%x\n", block.PreBlockHash)
 		fmt.Printf("\t当前的hash：%x\n", block.Hash)
-		fmt.Printf("\t数据：%s\n", block.Data)
+		fmt.Println("\t交易：")
+		for _, tx := range block.Txs {
+			fmt.Printf("\t\t交易ID：%x\n", tx.TxID)
+			fmt.Println("\t\tVins:")
+			for _, in := range tx.Vins {
+				fmt.Printf("\t\t\tTxID:%x\n", in.TxID)
+				fmt.Printf("\t\t\tVout:%d\n", in.Vout)
+				fmt.Printf("\t\t\tScriptSiq:%s\n", in.ScriptSiq)
+			}
+			fmt.Println("\t\tVouts:")
+			for _, out := range tx.Vouts {
+				fmt.Printf("\t\t\tvalue:%d\n", out.Value)
+				fmt.Printf("\t\t\tScriptPubKey:%s\n", out.ScriptPubKey)
+			}
+		}
 		//fmt.Printf("\t时间：%v\n", block.TimeStamp)
 		fmt.Printf("\t时间：%s\n", time.Unix(block.TimeStamp, 0).Format("2006-01-02 15:04:05"))
 		fmt.Printf("\t次数：%d\n", block.Nonce)
