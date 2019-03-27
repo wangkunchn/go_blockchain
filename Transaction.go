@@ -9,9 +9,9 @@ import (
 )
 
 type Transaction struct {
-	TxID []byte		//交易ID
-	Vins []*TXInput 		//输入
-	Vouts []*TXOutput		//输出
+	TxID    []byte      //交易ID
+	Inputs  []*TXInput  //输入
+	Outputs []*TXOutput //输出
 }
 
 
@@ -39,4 +39,9 @@ func (tx *Transaction) setTxID() {
 	buffBytes := bytes.Join([][]byte{IntToHex(time.Now().Unix()), buff.Bytes()}, []byte{})
 	hash := sha256.Sum256(buffBytes)
 	tx.TxID = hash[:]
+}
+
+//判断当前交易是否是coinbase
+func (tx *Transaction) isCoinbaseTx() bool {
+	return tx.Inputs[0].Index == -1 && len(tx.Inputs[0].TxID) == 0
 }

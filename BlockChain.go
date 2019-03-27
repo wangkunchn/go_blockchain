@@ -5,6 +5,7 @@ import (
 	"log"
 	"fmt"
 	"time"
+	"encoding/hex"
 )
 
 type BlockChain struct {
@@ -14,7 +15,7 @@ type BlockChain struct {
 }
 
 //创建一个区块链，包含创世区块
-func CreateBlockChainWithGenesisBlock(address string)  {
+func CreateBlockChainWithGenesisBlock(address string) {
 	if dbExists() {
 		fmt.Println("数据库已经存在。。")
 		return
@@ -34,8 +35,8 @@ func CreateBlockChainWithGenesisBlock(address string)  {
 		}
 		if bucket != nil {
 			err := bucket.Put(genesisBlock.Hash, genesisBlock.Serilalize())
-			fmt.Println("存入创世--pre",genesisBlock.Height,genesisBlock.PreBlockHash)
-			fmt.Println("存入创世--hash",genesisBlock.Height,genesisBlock.Hash)
+			fmt.Println("存入创世--pre", genesisBlock.Height, genesisBlock.PreBlockHash)
+			fmt.Println("存入创世--hash", genesisBlock.Height, genesisBlock.Hash)
 			if err != nil {
 				log.Panic("存储创始区块有误。。")
 			}
@@ -61,8 +62,8 @@ func (bc *BlockChain) AddBlockToBlockChain(txs []*Transaction) {
 			lastBlock := DeserializeBlock(lastblockHash)
 			newBlock := NewBlock(txs, lastBlock.Hash, lastBlock.Height+1)
 			e := bucket.Put(newBlock.Hash, newBlock.Serilalize())
-			fmt.Println("存入pre",newBlock.Height,newBlock.PreBlockHash)
-			fmt.Println("存入current----",newBlock.Height,newBlock.Hash)
+			fmt.Println("存入pre", newBlock.Height, newBlock.PreBlockHash)
+			fmt.Println("存入current----", newBlock.Height, newBlock.Hash)
 			if e != nil {
 				log.Panic("add block to blockchain err!!!!。。..")
 			}
@@ -99,13 +100,13 @@ func (bc *BlockChain) PringChains() {
 		for _, tx := range block.Txs {
 			fmt.Printf("\t\t交易ID：%x\n", tx.TxID)
 			fmt.Println("\t\tVins:")
-			for _, in := range tx.Vins {
+			for _, in := range tx.Inputs {
 				fmt.Printf("\t\t\tTxID:%x\n", in.TxID)
-				fmt.Printf("\t\t\tVout:%d\n", in.Vout)
+				fmt.Printf("\t\t\tVout:%d\n", in.Index)
 				fmt.Printf("\t\t\tScriptSiq:%s\n", in.ScriptSiq)
 			}
 			fmt.Println("\t\tVouts:")
-			for _, out := range tx.Vouts {
+			for _, out := range tx.Outputs {
 				fmt.Printf("\t\t\tvalue:%d\n", out.Value)
 				fmt.Printf("\t\t\tScriptPubKey:%s\n", out.ScriptPubKey)
 			}
@@ -137,7 +138,7 @@ func GetBlockChainObject() *BlockChain {
 		bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
 		if bucket != nil {
 			hash := bucket.Get([]byte(LAST_BLOCK_HASH))
-			blockchain = &BlockChain{db,hash}
+			blockchain = &BlockChain{db, hash}
 		}
 		return nil
 	})
@@ -145,4 +146,67 @@ func GetBlockChainObject() *BlockChain {
 		log.Panic(err)
 	}
 	return blockchain
+}
+
+//所有该address的 UTXO
+func (bc *BlockChain) AllUTXOs(address string, txs []*Transaction) []*UTXO {
+	var allUTXOs []*UTXO
+	spentTXOs := make(map[string][]int)
+
+	//1.添加先从txs遍历，查找未花费
+	for i := len(txs) - 1; i >= 0; i-- {
+		allUTXOs = calculateUTXO(address, txs[i], spentTXOs, allUTXOs)
+	}
+	//2.遍历数据库，获取每个块中的Transaction,找到未花费的Output
+	iterator := bc.Iterator()
+	for {
+		block := iterator.Next()
+		for i := len(block.Txs) - 1; i >= 0; i-- {
+			allUTXOs = calculateUTXO(address, block.Txs[i], spentTXOs, allUTXOs)
+		}
+		if block.Height == 0 {
+			break
+		}
+	}
+
+	return allUTXOs
+}
+
+func calculateUTXO(address string, tx *Transaction, spentTXOs map[string][]int, utxos []*UTXO) []*UTXO {
+	//1.先得到spentUTXOs
+	if !tx.isCoinbaseTx() {
+		for _, input := range tx.Inputs {
+			if input.UnLockWithAddress(address) {
+				key := hex.EncodeToString(input.TxID)
+				spentTXOs[key] = append(spentTXOs[key], input.Index)
+			}
+		}
+	}
+	fmt.Println("===>", spentTXOs)
+	//2.遍历UTXOs 满足的address,将满足address的 spentTXOs 排除掉
+output:
+	for i, output := range tx.Outputs {
+		if output.UnLockWithAddress(address) {
+			if len(spentTXOs) != 0 {
+
+				for key, indexs := range spentTXOs {
+					if key == hex.EncodeToString(tx.TxID) {
+						for _, index := range indexs {
+							if index == i {
+								//已花费 对应的  未花费，不加入数组
+								continue output
+							}
+						}
+					}
+				}
+				utxo := &UTXO{tx.TxID, i, output}
+				utxos = append(utxos, utxo)
+			} else {
+				//未花费
+				utxo := &UTXO{tx.TxID, i, output}
+				utxos = append(utxos, utxo)
+			}
+		}
+	}
+	return utxos
 }
