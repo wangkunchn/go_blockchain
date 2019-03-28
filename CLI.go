@@ -82,12 +82,10 @@ func (cli *CLI) Run() {
 		fmt.Println(*fromData)
 		fmt.Println(*toData)
 		fmt.Println(*amountData)
-/*		from := JsonToArray(*fromData)
+		from := JsonToArray(*fromData)
 		to := JsonToArray(*toData)
-		amount := JsonToArray(*amountData)*/
-		from := []string{*fromData}
-		to := []string{*toData}
-		amount := []string{*amountData}
+		amount := JsonToArray(*amountData)
+
 		cli.send(from, to, amount)
 	}
 }
@@ -144,7 +142,8 @@ func isVaild() {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("\tcreatBlockChain -address DATA -- 创建coinbase")
-	fmt.Println("\taddBlock -data Data -- 交易数据")
-	fmt.Println("\tprintChain -- 输出信息")
+	fmt.Println("\t creatBlockChain -address DATA -- 创建coinbase")
+	fmt.Println("\t printChain -- 输出信息")
+	fmt.Println("\t send -from Data -to Data -amount Data --转账")
+	fmt.Println("\t getBalance -address Data -- 查询地址余额")
 }
