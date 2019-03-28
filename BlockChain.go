@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 	"encoding/hex"
+	"os"
 )
 
 type BlockChain struct {
@@ -182,7 +183,6 @@ func calculateUTXO(address string, tx *Transaction, spentTXOs map[string][]int, 
 			}
 		}
 	}
-	fmt.Println("===>", spentTXOs)
 	//2.遍历UTXOs 满足的address,将满足address的 spentTXOs 排除掉
 output:
 	for i, output := range tx.Outputs {
@@ -208,5 +208,37 @@ output:
 			}
 		}
 	}
+	fmt.Println("===>", utxos)
 	return utxos
+}
+//转账时 找到部分可用utxo
+func (bc *BlockChain) FindSpendableUTXOs(from string,amount int64, txs []*Transaction) (int64, map[string][]int) {
+	//获取所有utxo  遍历 返回值： map[hash]{indexs}
+	var balance int64
+	utxos := bc.AllUTXOs(from, txs)
+	spendableUTXOs := make(map[string][]int)
+	for _, utxo := range utxos {
+		balance += utxo.Output.Value
+		idHash := hex.EncodeToString(utxo.TxID)
+		spendableUTXOs[idHash] = append(spendableUTXOs[idHash], utxo.Index)
+		if balance >= amount {
+			//用几个utxo就够了
+			break
+		}
+	}
+	fmt.Println(from,":balance:-->", balance)
+	if balance < amount {
+		fmt.Printf("%s 余额不足。。总额：%d，需要：%d\n", from,balance,amount)
+		os.Exit(1)
+	}
+	return balance,spendableUTXOs
+}
+
+func (bc *BlockChain) getBalance(address string,txs []*Transaction) int64 {
+	var balance int64
+	utxos := bc.AllUTXOs(address, txs)
+	for _,utxo := range utxos {
+		balance += utxo.Output.Value
+	}
+	return balance
 }
