@@ -14,11 +14,13 @@ type CLI struct {
 func (cli *CLI) Run() {
 	isVaild()
 	//1.创建flagset标签
-	createBlockChainCmd := flag.NewFlagSet("creatBlockChain", flag.ExitOnError)
+	createBlockChainCmd := flag.NewFlagSet("createBlockChain", flag.ExitOnError)
 	//addBlockCmd := flag.NewFlagSet("addBlock", flag.ExitOnError)
 	printChainCmd := flag.NewFlagSet("printChain", flag.ExitOnError)
 	sendTxCmd := flag.NewFlagSet("send", flag.ExitOnError)
 	getBalanceCmd := flag.NewFlagSet("getBalance", flag.ExitOnError)
+	createWalletCmd := flag.NewFlagSet("createWallet", flag.ExitOnError)
+	addressListCmd := flag.NewFlagSet("addressList", flag.ExitOnError)
 
 	//2.设置标签后面的参数
 	createBlockChainData := createBlockChainCmd.String("address", "Genesis block data..", "创始区块交易数据")
@@ -35,6 +37,11 @@ func (cli *CLI) Run() {
 		if err != nil {
 			log.Panic(err)
 		}
+	case "createWallet":
+		err := createWalletCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
 	case "getBalance":
 		err := getBalanceCmd.Parse(os.Args[2:])
 		if err != nil {
@@ -47,6 +54,11 @@ func (cli *CLI) Run() {
 		}
 	case "send":
 		err := sendTxCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
+	case "addressList":
+		err := addressListCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}
@@ -88,21 +100,18 @@ func (cli *CLI) Run() {
 
 		cli.send(from, to, amount)
 	}
+	if createWalletCmd.Parsed() {
+		cli.createWallet()
+	}
+	if addressListCmd.Parsed() {
+		cli.addressList()
+	}
 }
 
 func (cli *CLI) createGenesisBlock(address string) {
 	CreateBlockChainWithGenesisBlock(address)
 }
-/*func (cli *CLI) addBlock(data string) {
-	bc := GetBlockChainObject()
-	if bc == nil {
-		fmt.Println("没有创始区块可以添加。。")
-		return
-	}
-	defer bc.DB.Close()
-	//bc.AddBlockToBlockChain(data)
-}
-*/
+
 func (cli *CLI) printChain() {
 	bc := GetBlockChainObject()
 	if bc == nil {
@@ -132,6 +141,17 @@ func (cli *CLI) getBalance(address string) {
 	balance := bc.getBalance(address, []*Transaction{})
 	fmt.Printf("%s,一共有%d个Token\n",address,balance)
 }
+func (cli *CLI) createWallet() {
+	wallets := NewWallets()
+	wallets.CreateNewWallet()
+}
+func (cli *CLI) addressList() {
+	wallets := NewWallets()
+	for address := range wallets.WalletsMap {
+		fmt.Println("address:",address)
+
+	}
+}
 
 func isVaild() {
 	if len(os.Args) < 2 {
@@ -142,8 +162,10 @@ func isVaild() {
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("\t creatBlockChain -address DATA -- 创建coinbase")
+	fmt.Println("\t createBlockChain -address DATA -- 创建coinbase")
 	fmt.Println("\t printChain -- 输出信息")
+	fmt.Println("\t createWallet -- 创建钱包地址")
+	fmt.Println("\t addressList -- 地址列表")
 	fmt.Println("\t send -from Data -to Data -amount Data --转账")
 	fmt.Println("\t getBalance -address Data -- 查询地址余额")
 }
