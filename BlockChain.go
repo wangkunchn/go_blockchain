@@ -7,6 +7,7 @@ import (
 	"time"
 	"encoding/hex"
 	"os"
+	"strconv"
 )
 
 type BlockChain struct {
@@ -240,4 +241,49 @@ func (bc *BlockChain) getBalance(address string,txs []*Transaction) int64 {
 		balance += utxo.Output.Value
 	}
 	return balance
+}
+
+//挖矿 产生新区块
+func (bc *BlockChain) MineNewBlock(from, to, amout []string) {
+	/**
+			go_blockchain send -from '["wangkun"]' -to '["baby"]' -amout '["4"]'
+
+			["wangkun"]		["baby"]		["4"]
+
+			1.new tx/txs
+			2.new block
+			3.block to blockChain   block加入数据库
+	 */
+	var txs []*Transaction
+	for i := 0; i < len(from); i++ {
+		amountInt, _ := strconv.ParseInt(amout[i], 10, 64)
+		tx := NewSimpleTx(from[i], to[i], amountInt, bc, txs)
+		txs = append(txs, tx)
+	}
+	var preBlock *Block
+	var newBlock *Block
+	bc.DB.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
+		if bucket != nil {
+			lastHash := bucket.Get([]byte(LAST_BLOCK_HASH))
+			preBlockBytes := bucket.Get(lastHash)
+			preBlock = DeserializeBlock(preBlockBytes)
+		}
+		return nil
+	})
+
+	newBlock = NewBlock(txs, preBlock.Hash, preBlock.Height+1)
+
+	//打开数据库 添加block
+	bc.DB.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
+		if bucket != nil {
+			newBlockBytes := newBlock.Serilalize()
+			bucket.Put(newBlock.Hash,newBlockBytes)
+			bucket.Put([]byte(LAST_BLOCK_HASH),newBlock.Hash)
+			bc.Tip = newBlock.Hash
+			fmt.Println(newBlock.Height," : new block Hash-->",newBlock.Hash)
+		}
+		return nil
+	})
 }
