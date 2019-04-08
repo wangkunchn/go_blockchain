@@ -255,6 +255,11 @@ func (bc *BlockChain) MineNewBlock(from, to, amout []string) {
 			3.block to blockChain   block加入数据库
 	 */
 	var txs []*Transaction
+
+	//假设第一个人 挖到矿    给奖励
+	tx := NewCoinBaseTransaction(from[0])
+	txs = append(txs, tx)
+
 	for i := 0; i < len(from); i++ {
 		amountInt, _ := strconv.ParseInt(amout[i], 10, 64)
 		tx := NewSimpleTx(from[i], to[i], amountInt, bc, txs)
