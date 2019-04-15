@@ -8,6 +8,9 @@ import (
 	"encoding/hex"
 	"os"
 	"strconv"
+	"bytes"
+	"math/big"
+	"crypto/ecdsa"
 )
 
 type BlockChain struct {
@@ -105,12 +108,12 @@ func (bc *BlockChain) PringChains() {
 			for _, in := range tx.Inputs {
 				fmt.Printf("\t\t\tTxID:%x\n", in.TxID)
 				fmt.Printf("\t\t\tVout:%d\n", in.Index)
-				fmt.Printf("\t\t\tScriptSiq:%s\n", in.ScriptSiq)
+				fmt.Printf("\t\t\tScriptSiq:%s\n", in.Signature)
 			}
 			fmt.Println("\t\tVouts:")
 			for _, out := range tx.Outputs {
 				fmt.Printf("\t\t\tvalue:%d\n", out.Value)
-				fmt.Printf("\t\t\tScriptPubKey:%s\n", out.ScriptPubKey)
+				fmt.Printf("\t\t\tScriptPubKey:%s\n", out.PubKeyHash)
 			}
 		}
 		//fmt.Printf("\t时间：%v\n", block.TimeStamp)
@@ -178,11 +181,20 @@ func calculateUTXO(address string, tx *Transaction, spentTXOs map[string][]int, 
 	//1.先得到spentUTXOs
 	if !tx.isCoinbaseTx() {
 		for _, input := range tx.Inputs {
-			if input.UnLockWithAddress(address) {
+			//如果解锁  address -->publickey
+			fullPayloadHash:=Base58Decode([]byte(address))
+			pubKeyHash:=fullPayloadHash[1:len(fullPayloadHash)-addressChecksumLen]//对比的有0   之前是【1：xxxxx】   有问题
+
+			if input.UnLockWithAddress(pubKeyHash) {
 				key := hex.EncodeToString(input.TxID)
 				spentTXOs[key] = append(spentTXOs[key], input.Index)
 			}
 		}
+	}
+	fmt.Println("*********************len(spentTXOs)",len(spentTXOs))
+	for k, v := range spentTXOs {
+		fmt.Println("*****TXID",k)
+		fmt.Println("*****[]int--index",v)
 	}
 	//2.遍历UTXOs 满足的address,将满足address的 spentTXOs 排除掉
 output:
@@ -190,18 +202,22 @@ output:
 		if output.UnLockWithAddress(address) {
 			if len(spentTXOs) != 0 {
 
+				var isSpentUTXO  bool
 				for key, indexs := range spentTXOs {
 					if key == hex.EncodeToString(tx.TxID) {
 						for _, index := range indexs {
 							if index == i {
 								//已花费 对应的  未花费，不加入数组
+								isSpentUTXO = true
 								continue output
 							}
 						}
 					}
 				}
-				utxo := &UTXO{tx.TxID, i, output}
-				utxos = append(utxos, utxo)
+				if !isSpentUTXO {
+					utxo := &UTXO{tx.TxID, i, output}
+					utxos = append(utxos, utxo)
+				}
 			} else {
 				//未花费
 				utxo := &UTXO{tx.TxID, i, output}
@@ -209,13 +225,29 @@ output:
 			}
 		}
 	}
+	fmt.Println("len(utxos)",len(utxos))
+
 	return utxos
 }
+
 //转账时 找到部分可用utxo
-func (bc *BlockChain) FindSpendableUTXOs(from string,amount int64, txs []*Transaction) (int64, map[string][]int) {
+func (bc *BlockChain) FindSpendableUTXOs(from string, amount int64, txs []*Transaction) (int64, map[string][]int) {
 	//获取所有utxo  遍历 返回值： map[hash]{indexs}
 	var balance int64
 	utxos := bc.AllUTXOs(from, txs)
+	for i, utxo := range utxos {
+		fmt.Println(i,"utxo--id",utxo.TxID)
+		fmt.Printf("\t\t\tTxID:%x\n", utxo.TxID)
+		fmt.Println(i,"utxo--index",utxo.Index)
+		fmt.Println(i,"utxo--value",utxo.Output.Value)
+		fmt.Println("======================转帐前的检查================================================")
+	}
+	var bb int64
+	for _, utxo := range utxos {
+		bb += utxo.Output.Value
+	}
+	fmt.Println("=====================转帐前的检查===========余额======",bb)
+
 	spendableUTXOs := make(map[string][]int)
 	for _, utxo := range utxos {
 		balance += utxo.Output.Value
@@ -226,18 +258,25 @@ func (bc *BlockChain) FindSpendableUTXOs(from string,amount int64, txs []*Transa
 			break
 		}
 	}
-	fmt.Println(from,":balance:-->", balance)
+	fmt.Println(from, ":balance:-->", balance)
 	if balance < amount {
-		fmt.Printf("%s 余额不足。。总额：%d，需要：%d\n", from,balance,amount)
+		fmt.Printf("%s 余额不足。。总额：%d，需要：%d\n", from, balance, amount)
 		os.Exit(1)
 	}
-	return balance,spendableUTXOs
+	return balance, spendableUTXOs
 }
 
-func (bc *BlockChain) getBalance(address string,txs []*Transaction) int64 {
+func (bc *BlockChain) getBalance(address string, txs []*Transaction) int64 {
 	var balance int64
 	utxos := bc.AllUTXOs(address, txs)
-	for _,utxo := range utxos {
+	for i, utxo := range utxos {
+		fmt.Println(i,"utxo--id",utxo.TxID)
+		fmt.Printf("\t\t\tTxID:%x\n", utxo.TxID)
+		fmt.Println(i,"utxo--index",utxo.Index)
+		fmt.Println(i,"utxo--value",utxo.Output.Value)
+		fmt.Println("======================================================================")
+	}
+	for _, utxo := range utxos {
 		balance += utxo.Output.Value
 	}
 	return balance
@@ -257,14 +296,19 @@ func (bc *BlockChain) MineNewBlock(from, to, amout []string) {
 	var txs []*Transaction
 
 	//假设第一个人 挖到矿    给奖励
-	tx := NewCoinBaseTransaction(from[0])
-	txs = append(txs, tx)
+	//tx := NewCoinBaseTransaction(from[0])
+	//fmt.Println("from---",from[0])
+	//fmt.Println("to---",to[0])
+	//fmt.Println("amount---",amout[0])
+	//txs = append(txs, tx)
 
 	for i := 0; i < len(from); i++ {
 		amountInt, _ := strconv.ParseInt(amout[i], 10, 64)
 		tx := NewSimpleTx(from[i], to[i], amountInt, bc, txs)
 		txs = append(txs, tx)
+		fmt.Println("tx.isCoinbaseTx()",tx.isCoinbaseTx())
 	}
+	fmt.Println("len(txs",len(txs))
 	var preBlock *Block
 	var newBlock *Block
 	bc.DB.View(func(tx *bolt.Tx) error {
@@ -276,6 +320,16 @@ func (bc *BlockChain) MineNewBlock(from, to, amout []string) {
 		}
 		return nil
 	})
+	//在加入区块链之前，对txs 进行签名验证
+	_txs := []*Transaction{}
+	fmt.Println("292",_txs)
+	for _, tx := range txs {
+		fmt.Println("---------------验签",tx.TxID)
+		if bc.VerifyTx(tx, _txs) != true {
+			log.Panic("签名失败。。。")
+		}
+		_txs = append(_txs, tx)
+	}
 
 	newBlock = NewBlock(txs, preBlock.Hash, preBlock.Height+1)
 
@@ -284,11 +338,59 @@ func (bc *BlockChain) MineNewBlock(from, to, amout []string) {
 		bucket := tx.Bucket([]byte(BLOCK_TABLE_NAME))
 		if bucket != nil {
 			newBlockBytes := newBlock.Serilalize()
-			bucket.Put(newBlock.Hash,newBlockBytes)
-			bucket.Put([]byte(LAST_BLOCK_HASH),newBlock.Hash)
+			bucket.Put(newBlock.Hash, newBlockBytes)
+			bucket.Put([]byte(LAST_BLOCK_HASH), newBlock.Hash)
 			bc.Tip = newBlock.Hash
-			fmt.Println(newBlock.Height," : new block Hash-->",newBlock.Hash)
+			fmt.Println(newBlock.Height, " : new block Hash-->", newBlock.Hash)
 		}
 		return nil
 	})
+}
+
+//根据交易ID 查找对应的Transaction
+func (bc *BlockChain) findTransactionByTxId(txId []byte, txs []*Transaction) *Transaction {
+	for _, tx := range txs {
+		if bytes.Compare(txId, tx.TxID) == 0 {
+			fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+			fmt.Println("ididididid",tx.TxID)
+			return tx
+		}
+	}
+	iterator := bc.Iterator()
+	for {
+		block := iterator.Next()
+		for _, tx := range block.Txs {
+			if bytes.Compare(txId, tx.TxID) == 0 {
+				return tx
+			}
+		}
+		var hashInt big.Int
+		hashInt.SetBytes(block.PreBlockHash)
+		if big.NewInt(0).Cmp(&hashInt) == 0 {
+			break
+		}
+	}
+	return &Transaction{}
+}
+
+//签名一笔交易
+func (bc *BlockChain) SignTransaction(tx *Transaction, privateKey ecdsa.PrivateKey, txs []*Transaction) {
+	if tx.isCoinbaseTx() {
+		return
+	}
+	preTxs := make(map[string]*Transaction)
+	for _, input := range tx.Inputs {
+		preTx := bc.findTransactionByTxId(input.TxID, txs)
+		preTxs[hex.EncodeToString(preTx.TxID)] = preTx
+	}
+	tx.Sign(privateKey, preTxs)
+
+}
+func (bc *BlockChain) VerifyTx(tx *Transaction, txs []*Transaction) bool {
+	preTxs := make(map[string]*Transaction)
+	for _, input := range tx.Inputs {
+		preTx := bc.findTransactionByTxId(input.TxID, txs)
+		preTxs[hex.EncodeToString(input.TxID)] = preTx
+	}
+	return tx.Verify(preTxs)
 }

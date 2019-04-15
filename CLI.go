@@ -32,7 +32,7 @@ func (cli *CLI) Run() {
 
 	//3.解析
 	switch os.Args[1] {
-	case "creatBlockChain":
+	case "createBlockChain":
 		err := createBlockChainCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
@@ -69,6 +69,7 @@ func (cli *CLI) Run() {
 
 	if createBlockChainCmd.Parsed() {
 		if *createBlockChainData == "" {
+			fmt.Println("???",*createBlockChainData)
 			printUsage()
 			os.Exit(1)
 		}
