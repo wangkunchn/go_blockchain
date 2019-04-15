@@ -33,7 +33,7 @@ func NewCoinBaseTransaction(address string) *Transaction {
 	txOutput := NewTxOutput(10,address)
 	txcoinbase := &Transaction{[]byte{}, []*TXInput{txInput}, []*TXOutput{txOutput}}
 	txcoinbase.setTxID()
-	fmt.Println("genesis block 生成..................")
+	fmt.Println("coin base  block 生成..................")
 	return txcoinbase
 }
 
@@ -78,7 +78,12 @@ func NewSimpleTx(from, to string, amount int64, bc *BlockChain, txs []*Transacti
 	outputs = append(outputs, output1)
 	//找零
 	//output2 := &TXOutput{balance - amount, from}
+
 	output2 := NewTxOutput(balance - amount, from)
+	fmt.Println("balance",balance)
+	fmt.Println("amount",amount)
+	fmt.Println("balance - amount",balance - amount)
+	fmt.Println("找零",output2.Value)
 	outputs = append(outputs, output2)
 
 	tx := &Transaction{[]byte{}, inputs, outputs}

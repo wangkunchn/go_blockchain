@@ -191,11 +191,11 @@ func calculateUTXO(address string, tx *Transaction, spentTXOs map[string][]int, 
 			}
 		}
 	}
-	fmt.Println("*********************len(spentTXOs)",len(spentTXOs))
+/*	fmt.Println("*********************len(spentTXOs)",len(spentTXOs))
 	for k, v := range spentTXOs {
 		fmt.Println("*****TXID",k)
 		fmt.Println("*****[]int--index",v)
-	}
+	}*/
 	//2.遍历UTXOs 满足的address,将满足address的 spentTXOs 排除掉
 output:
 	for i, output := range tx.Outputs {
@@ -225,7 +225,7 @@ output:
 			}
 		}
 	}
-	fmt.Println("len(utxos)",len(utxos))
+	//fmt.Println("len(utxos)",len(utxos))
 
 	return utxos
 }
@@ -296,14 +296,12 @@ func (bc *BlockChain) MineNewBlock(from, to, amout []string) {
 	var txs []*Transaction
 
 	//假设第一个人 挖到矿    给奖励
-	//tx := NewCoinBaseTransaction(from[0])
-	//fmt.Println("from---",from[0])
-	//fmt.Println("to---",to[0])
-	//fmt.Println("amount---",amout[0])
-	//txs = append(txs, tx)
+	tx := NewCoinBaseTransaction(from[0])
+	txs = append(txs, tx)
 
 	for i := 0; i < len(from); i++ {
 		amountInt, _ := strconv.ParseInt(amout[i], 10, 64)
+		fmt.Println(i,"--amountInt:",amountInt,"---amout[i]:",amout[i])
 		tx := NewSimpleTx(from[i], to[i], amountInt, bc, txs)
 		txs = append(txs, tx)
 		fmt.Println("tx.isCoinbaseTx()",tx.isCoinbaseTx())

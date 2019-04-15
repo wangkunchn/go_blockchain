@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 )
 
 type TXInput struct {
@@ -18,8 +17,8 @@ type TXInput struct {
 func (txInput *TXInput) UnLockWithAddress (pubKeyHash  []byte) bool {
 	//return txInput.ScriptSiq == address
 	publicKeyHash := PubKeyHash(txInput.PublicKey)
-	fmt.Println("传过来的pubkeyHash",pubKeyHash)
-	fmt.Println("PubKeyHash(txInput.PublicKey)",publicKeyHash)
+	//fmt.Println("传过来的pubkeyHash",pubKeyHash)
+	//fmt.Println("PubKeyHash(txInput.PublicKey)",publicKeyHash)
 	return bytes.Compare(pubKeyHash,publicKeyHash) == 0
 
 }
